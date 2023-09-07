@@ -5,6 +5,8 @@ from typing import Dict, Callable
 from deepgram import Deepgram
 from dotenv import load_dotenv
 import os
+import jinja2
+from collections import Counter
 
 load_dotenv()
 
@@ -102,3 +104,8 @@ async def websocket_endpoint(websocket: WebSocket):
         raise Exception(f'Could not process audio: {e}')
     finally:
         await websocket.close()
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, log_level="info")
