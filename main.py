@@ -15,16 +15,64 @@ dg_client = Deepgram(os.getenv('DEEPGRAM_API_KEY'))
 templates = Jinja2Templates(directory="templates")
 
 async def process_audio(fast_socket: WebSocket):
+    def process_raw_output(data: dict) -> str:
+        """
+        Process raw output from Deepgram API to add speaker information.
+        It should already be speech detected
+
+        -------
+        example output (with speaker):
+        my_dict = {
+        'type': 'Results',
+        'channel_index': [0, 1],
+        'duration': 1.3100004,
+        'start': 9.04,
+        'is_final': True,
+        'speech_final': True,
+        'channel': {
+            'alternatives': [
+                {
+                    'transcript': "Hey How's it going?",
+                    'confidence': 0.98657423,
+                    'words': [
+                        {'word': 'hey', 'start': 9.154706, 'end': 9.307647, 'confidence': 0.88753504, 'speaker': 0, 'punctuated_word': 'Hey'},
+                        {'word': "how's", 'start': 9.384118, 'end': 9.537059, 'confidence': 0.9859679, 'speaker': 0, 'punctuated_word': "How's"},
+                        {'word': 'it', 'start': 9.537059, 'end': 9.69, 'confidence': 0.98657423, 'speaker': 0, 'punctuated_word': 'it'},
+                        {'word': 'going', 'start': 9.69, 'end': 9.842941, 'confidence': 0.99444866, 'speaker': 0, 'punctuated_word': 'going?'}
+                    ]
+                }
+            ]
+        },
+        'metadata': {
+            'request_id': '1bc06137-f685-45d4-95b1-72e30a3f6cc1',
+            'model_info': {
+                'name': 'general',
+                'version': '2023-02-22.3',
+                'arch': 'base'
+            },
+            'model_uuid': '96a295ec-6336-43d5-b1cb-1e48b5e6d9a4'
+        }
+    }
+
+        """
+        speakers_involved = [word['speaker'] for word in data['channel']['alternatives'][0]['words']]
+        speaker_count = Counter(speakers_involved)
+        top_speaker = speaker_count.most_common(1)[0][0]
+        return f' [Speaker {top_speaker}] ' + data['channel']['alternatives'][0]['transcript']
+
     async def get_transcript(data: Dict) -> None:
         if 'channel' in data:
+            # print(data)
+            print(type(data))
             transcript = data['channel']['alternatives'][0]['transcript']
         
             if transcript:
-                await fast_socket.send_text(transcript)
+                await fast_socket.send_text(process_raw_output(data))
 
     deepgram_socket = await connect_to_deepgram(get_transcript)
 
     return deepgram_socket
+
 
 async def connect_to_deepgram(transcript_received_handler: Callable[[Dict], None]):
     try:
